@@ -47,16 +47,12 @@
     .logo {
       font-size: 24px;
       letter-spacing: 3px;
-      /* New pixelated text animation */
+      /* Pixelated text animation */
       animation: pixelLogo 2s infinite alternate;
     }
     @keyframes pixelLogo {
-      0% {
-        text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff;
-      }
-      100% {
-        text-shadow: 4px 4px 0 #fff, -4px -4px 0 #fff;
-      }
+      0% { text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff; }
+      100% { text-shadow: 4px 4px 0 #fff, -4px -4px 0 #fff; }
     }
     /* Authentication Status */
     #auth-status {
@@ -196,20 +192,29 @@
     const auth = firebase.auth();
     const promptsCollection = db.collection("prompts");
 
-    // Set up Google Auth Provider with login hint
-    const provider = new firebase.auth.GoogleAuthProvider();
-    provider.setCustomParameters({ 'login_hint': 'florisvdoever@gmail.com' });
+    // Global variable to track if current user is a guest
+    let isGuest = false;
+    
+    // Set up Google Auth Provider with login hint for your account
+    const googleProvider = new firebase.auth.GoogleAuthProvider();
+    googleProvider.setCustomParameters({ 'login_hint': 'florisvdoever@gmail.com' });
     
     let unsubscribePrompts = null;
+    
+    // Handle authentication state changes
     auth.onAuthStateChanged(user => {
       if (user) {
-        if (user.email !== "florisvdoever@gmail.com") {
+        // Set guest flag based on user type
+        isGuest = user.isAnonymous;
+        // If signed in with Google, ensure it's the permitted account
+        if (!isGuest && user.email !== "florisvdoever@gmail.com") {
           alert("Unauthorized user. Signing out.");
           auth.signOut();
           return;
         }
+        const displayName = isGuest ? "Guest" : user.email;
         document.getElementById("auth-status").innerHTML = 
-          `Signed in as ${user.email} <button id="signOutBtn">Sign Out</button>`;
+          `Signed in as ${displayName} <button id="signOutBtn">Sign Out</button>`;
         document.getElementById("promptContainer").style.display = "block";
         if (!unsubscribePrompts) {
           unsubscribePrompts = promptsCollection.orderBy("timestamp", "desc")
@@ -218,29 +223,37 @@
               promptList.innerHTML = "";
               snapshot.forEach(doc => {
                 const prompt = doc.data();
-                const li = document.createElement("li");
+                let li = document.createElement("li");
                 li.className = "prompt-item";
+                // For guests, make text non-editable; for Google users, allow editing.
+                const contentEditable = isGuest ? "false" : "true";
                 li.innerHTML = `
                   <div>
                     <strong>Prompt:</strong>
-                    <span class="prompt-text" contenteditable="true" data-id="${doc.id}">${prompt.content}</span>
+                    <span class="prompt-text" contenteditable="${contentEditable}" data-id="${doc.id}">${prompt.content}</span>
                   </div>
                   <div>
                     <strong>Tags:</strong>
-                    <span class="prompt-tags" contenteditable="true" data-id="${doc.id}">${prompt.tags || ""}</span>
-                  </div>
-                  <div class="actions">
-                    <button class="updateBtn" data-id="${doc.id}">Update</button>
-                    <button class="deleteBtn" data-id="${doc.id}">Delete</button>
+                    <span class="prompt-tags" contenteditable="${contentEditable}" data-id="${doc.id}">${prompt.tags || ""}</span>
                   </div>
                 `;
+                // Only show update and delete buttons for Google (non-guest) users
+                if (!isGuest) {
+                  li.innerHTML += `
+                    <div class="actions">
+                      <button class="updateBtn" data-id="${doc.id}">Update</button>
+                      <button class="deleteBtn" data-id="${doc.id}">Delete</button>
+                    </div>
+                  `;
+                }
                 promptList.appendChild(li);
               });
             });
         }
       } else {
         document.getElementById("auth-status").innerHTML =
-          `<button id="signInBtn">Sign In with Google</button>`;
+          `<button id="signInBtn">Sign In with Google</button>
+           <button id="guestBtn">Continue as Guest</button>`;
         document.getElementById("promptContainer").style.display = "none";
         if (unsubscribePrompts) {
           unsubscribePrompts();
@@ -248,11 +261,19 @@
         }
       }
     });
+
+    // Delegate sign in, guest sign in, and sign out events
     document.addEventListener('click', function(e){
       if(e.target && e.target.id === "signInBtn"){
-        auth.signInWithPopup(provider).catch(error => {
+        auth.signInWithPopup(googleProvider).catch(error => {
           console.error(error);
           alert("Error signing in: " + error.message);
+        });
+      }
+      if(e.target && e.target.id === "guestBtn"){
+        auth.signInAnonymously().catch(error => {
+          console.error(error);
+          alert("Error signing in as guest: " + error.message);
         });
       }
       if(e.target && e.target.id === "signOutBtn"){
@@ -262,6 +283,8 @@
         });
       }
     });
+
+    // Save new prompt or update existing one
     document.getElementById("savePromptBtn").addEventListener("click", () => {
       const content = document.getElementById("promptContent").value.trim();
       const tags = document.getElementById("promptTags").value.trim();
@@ -270,24 +293,30 @@
         alert("Prompt cannot be empty.");
         return;
       }
-      if (promptId) {
+      if (promptId && !isGuest) {
+        // Only allow update if not a guest
         promptsCollection.doc(promptId).update({
           content,
           tags,
           timestamp: firebase.firestore.FieldValue.serverTimestamp()
         });
-      } else {
+      } else if (!promptId) {
+        // Always allow adding a new prompt regardless of login type
         promptsCollection.add({
           content,
           tags,
           timestamp: firebase.firestore.FieldValue.serverTimestamp()
         });
       }
+      // Clear form
       document.getElementById("promptContent").value = "";
       document.getElementById("promptTags").value = "";
       document.getElementById("promptId").value = "";
     });
+
+    // Inline update and delete actions (only applicable for non-guests)
     document.getElementById("promptList").addEventListener("click", (e) => {
+      if (isGuest) return; // Prevent any update/delete for guests
       if (e.target.classList.contains("updateBtn")) {
         const id = e.target.getAttribute("data-id");
         const content = e.target.parentElement.parentElement.querySelector(".prompt-text").innerText.trim();
@@ -305,6 +334,8 @@
         }
       }
     });
+
+    // Export prompts to a JSON file
     document.getElementById("exportBtn").addEventListener("click", () => {
       promptsCollection.get().then(snapshot => {
         const prompts = [];
@@ -318,6 +349,8 @@
         dlAnchorElem.click();
       });
     });
+
+    // Import prompts from a JSON file
     document.getElementById("importBtn").addEventListener("click", () => {
       document.getElementById("importFile").click();
     });
@@ -347,44 +380,34 @@
     const ctx = canvas.getContext('2d');
     let clouds = [];
     const numClouds = 15;
-
-    // Resize canvas to full window
     function resizeCanvas() {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
     }
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
-
-    // Create cloud objects with random properties
     function initClouds() {
       clouds = [];
       for (let i = 0; i < numClouds; i++) {
         clouds.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height * 0.5,
-          speed: 0.2 + Math.random() * 0.8, // speed varies by depth
-          scale: 0.5 + Math.random(), // affects size
+          speed: 0.2 + Math.random() * 0.8,
+          scale: 0.5 + Math.random(),
           opacity: 0.3 + Math.random() * 0.5
         });
       }
     }
     initClouds();
-
-    // Draw a pixelated cloud using rectangles
     function drawCloud(cloud) {
       const { x, y, scale, opacity } = cloud;
       ctx.fillStyle = `rgba(255,255,255,${opacity})`;
-      // Simple pixel cloud: draw several small blocks
       const blockSize = 8 * scale;
-      // Cloud pattern: a few blocks in an irregular shape
       ctx.fillRect(x, y, blockSize, blockSize);
       ctx.fillRect(x + blockSize, y - blockSize/2, blockSize, blockSize);
       ctx.fillRect(x + blockSize*2, y, blockSize, blockSize);
       ctx.fillRect(x + blockSize, y + blockSize, blockSize, blockSize);
     }
-
-    // Animate clouds moving from right to left
     function animateClouds() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       clouds.forEach(cloud => {
