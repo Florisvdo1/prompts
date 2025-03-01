@@ -7,6 +7,7 @@
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <style>
     /* CSS Reset */
     * {
@@ -43,6 +44,12 @@
       60% { text-shadow: -2px 0 red, 2px 0 cyan; }
       80% { text-shadow: 2px 0 red, -2px 0 cyan; }
       100% { text-shadow: -2px 0 red, 2px 0 cyan; }
+    }
+    /* Authentication status styling */
+    #auth-status {
+      text-align: center;
+      padding: 10px;
+      background: #1f1f1f;
     }
     main {
       padding: 20px;
@@ -128,23 +135,32 @@
     <!-- Cyber animated logo in the top center -->
     <div class="logo">O-E-V-E-R-.-A-R-T</div>
   </header>
-  <main>
-    <div class="prompt-form">
-      <h2>Add a New Prompt</h2>
-      <textarea id="promptContent" placeholder="Enter your prompt here..." rows="3"></textarea>
-      <input type="text" id="promptTags" placeholder="Enter tags (comma separated)">
-      <!-- Hidden input to track if editing -->
-      <input type="hidden" id="promptId">
-      <button id="savePromptBtn">Save Prompt</button>
-    </div>
-    <ul class="prompt-list" id="promptList"></ul>
-    
-    <div class="import-export">
-      <button id="exportBtn">Export Prompts</button>
-      <input type="file" id="importFile" style="display:none;">
-      <button id="importBtn">Import Prompts</button>
-    </div>
-  </main>
+  
+  <!-- Authentication status area -->
+  <div id="auth-status">
+    <!-- Sign In button will appear here if not signed in -->
+  </div>
+  
+  <!-- Main content (prompt interface) is hidden until user is authenticated -->
+  <div id="promptContainer" style="display: none;">
+    <main>
+      <div class="prompt-form">
+        <h2>Add a New Prompt</h2>
+        <textarea id="promptContent" placeholder="Enter your prompt here..." rows="3"></textarea>
+        <input type="text" id="promptTags" placeholder="Enter tags (comma separated)">
+        <!-- Hidden input to track if editing -->
+        <input type="hidden" id="promptId">
+        <button id="savePromptBtn">Save Prompt</button>
+      </div>
+      <ul class="prompt-list" id="promptList"></ul>
+      
+      <div class="import-export">
+        <button id="exportBtn">Export Prompts</button>
+        <input type="file" id="importFile" style="display:none;">
+        <button id="importBtn">Import Prompts</button>
+      </div>
+    </main>
+  </div>
 
   <script>
     // Firebase configuration and initialization
@@ -156,35 +172,91 @@
       messagingSenderId: "314818983415",
       appId: "1:314818983415:web:f21d230b6088bf3b0beaf2"
     };
-    // Initialize Firebase using the compat SDK for simplicity
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    const auth = firebase.auth();
     const promptsCollection = db.collection("prompts");
 
-    // Real-time listener for auto-syncing prompts
-    promptsCollection.orderBy("timestamp", "desc").onSnapshot(snapshot => {
-      const promptList = document.getElementById("promptList");
-      promptList.innerHTML = "";
-      snapshot.forEach(doc => {
-        const prompt = doc.data();
-        const li = document.createElement("li");
-        li.className = "prompt-item";
-        li.innerHTML = `
-          <div>
-            <strong>Prompt:</strong>
-            <span class="prompt-text" contenteditable="true" data-id="${doc.id}">${prompt.content}</span>
-          </div>
-          <div>
-            <strong>Tags:</strong>
-            <span class="prompt-tags" contenteditable="true" data-id="${doc.id}">${prompt.tags || ""}</span>
-          </div>
-          <div class="actions">
-            <button class="updateBtn" data-id="${doc.id}">Update</button>
-            <button class="deleteBtn" data-id="${doc.id}">Delete</button>
-          </div>
-        `;
-        promptList.appendChild(li);
-      });
+    // Set up Google Auth Provider with a login hint
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({
+      'login_hint': 'florisvdoever@gmail.com'
+    });
+
+    // To store the Firestore listener unsubscribe function
+    let unsubscribePrompts = null;
+
+    // Listen for authentication state changes
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        // Check if the signed-in user's email matches the authorized email
+        if (user.email !== "florisvdoever@gmail.com") {
+          alert("Unauthorized user. Signing out.");
+          auth.signOut();
+          return;
+        }
+        document.getElementById("auth-status").innerHTML = 
+          `Signed in as ${user.email} <button id="signOutBtn">Sign Out</button>`;
+        // Show the prompt interface
+        document.getElementById("promptContainer").style.display = "block";
+
+        // Attach Firestore listener if not already attached
+        if (!unsubscribePrompts) {
+          unsubscribePrompts = promptsCollection.orderBy("timestamp", "desc")
+            .onSnapshot(snapshot => {
+              const promptList = document.getElementById("promptList");
+              promptList.innerHTML = "";
+              snapshot.forEach(doc => {
+                const prompt = doc.data();
+                const li = document.createElement("li");
+                li.className = "prompt-item";
+                li.innerHTML = `
+                  <div>
+                    <strong>Prompt:</strong>
+                    <span class="prompt-text" contenteditable="true" data-id="${doc.id}">${prompt.content}</span>
+                  </div>
+                  <div>
+                    <strong>Tags:</strong>
+                    <span class="prompt-tags" contenteditable="true" data-id="${doc.id}">${prompt.tags || ""}</span>
+                  </div>
+                  <div class="actions">
+                    <button class="updateBtn" data-id="${doc.id}">Update</button>
+                    <button class="deleteBtn" data-id="${doc.id}">Delete</button>
+                  </div>
+                `;
+                promptList.appendChild(li);
+              });
+            });
+        }
+      } else {
+        document.getElementById("auth-status").innerHTML =
+          `<button id="signInBtn">Sign In with Google</button>`;
+        document.getElementById("promptContainer").style.display = "none";
+        if (unsubscribePrompts) {
+          unsubscribePrompts();
+          unsubscribePrompts = null;
+        }
+      }
+    });
+
+    // Delegate sign in and sign out events
+    document.addEventListener('click', function(e){
+      if(e.target && e.target.id === "signInBtn"){
+        auth.signInWithPopup(provider).then(result => {
+          // Signed in successfully
+        }).catch(error => {
+          console.error(error);
+          alert("Error signing in: " + error.message);
+        });
+      }
+      if(e.target && e.target.id === "signOutBtn"){
+        auth.signOut().then(() => {
+          // Signed out successfully
+        }).catch(error => {
+          console.error(error);
+          alert("Error signing out: " + error.message);
+        });
+      }
     });
 
     // Save new prompt or update existing one
@@ -219,7 +291,7 @@
       document.getElementById("promptId").value = "";
     });
 
-    // Inline update and delete actions
+    // Inline update and delete actions for each prompt
     document.getElementById("promptList").addEventListener("click", (e) => {
       if (e.target.classList.contains("updateBtn")) {
         const id = e.target.getAttribute("data-id");
