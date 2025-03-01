@@ -47,12 +47,16 @@
     .logo {
       font-size: 24px;
       letter-spacing: 3px;
-      /* Pixelated text animation */
+      /* Updated logo text animation with pixelated style */
       animation: pixelLogo 2s infinite alternate;
     }
     @keyframes pixelLogo {
-      0% { text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff; }
-      100% { text-shadow: 4px 4px 0 #fff, -4px -4px 0 #fff; }
+      0% {
+        text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff;
+      }
+      100% {
+        text-shadow: 4px 4px 0 #fff, -4px -4px 0 #fff;
+      }
     }
     /* Authentication Status */
     #auth-status {
@@ -103,7 +107,7 @@
       border: 1px solid rgba(255,255,255,0.4);
       padding: 10px 20px;
       cursor: pointer;
-      border-radius: 0; /* Sharp edges for 8-bit look */
+      border-radius: 0;
       box-shadow: 3px 3px 0 #fff;
       font-family: 'Press Start 2P', monospace;
       font-size: 12px;
@@ -150,7 +154,7 @@
   <canvas id="bgCanvas"></canvas>
   
   <header>
-    <!-- Updated Logo Text with Pixel Animation -->
+    <!-- Updated Logo Text -->
     <div class="logo">OEVER.ART</div>
   </header>
   
@@ -192,29 +196,20 @@
     const auth = firebase.auth();
     const promptsCollection = db.collection("prompts");
 
-    // Global variable to track if current user is a guest
-    let isGuest = false;
-    
-    // Set up Google Auth Provider with login hint for your account
-    const googleProvider = new firebase.auth.GoogleAuthProvider();
-    googleProvider.setCustomParameters({ 'login_hint': 'florisvdoever@gmail.com' });
+    // Set up Google Auth Provider with login hint
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ 'login_hint': 'florisvdoever@gmail.com' });
     
     let unsubscribePrompts = null;
-    
-    // Handle authentication state changes
     auth.onAuthStateChanged(user => {
       if (user) {
-        // Set guest flag based on user type
-        isGuest = user.isAnonymous;
-        // If signed in with Google, ensure it's the permitted account
-        if (!isGuest && user.email !== "florisvdoever@gmail.com") {
+        if (user.email !== "florisvdoever@gmail.com") {
           alert("Unauthorized user. Signing out.");
           auth.signOut();
           return;
         }
-        const displayName = isGuest ? "Guest" : user.email;
         document.getElementById("auth-status").innerHTML = 
-          `Signed in as ${displayName} <button id="signOutBtn">Sign Out</button>`;
+          `Signed in as ${user.email} <button id="signOutBtn">Sign Out</button>`;
         document.getElementById("promptContainer").style.display = "block";
         if (!unsubscribePrompts) {
           unsubscribePrompts = promptsCollection.orderBy("timestamp", "desc")
@@ -223,37 +218,29 @@
               promptList.innerHTML = "";
               snapshot.forEach(doc => {
                 const prompt = doc.data();
-                let li = document.createElement("li");
+                const li = document.createElement("li");
                 li.className = "prompt-item";
-                // For guests, make text non-editable; for Google users, allow editing.
-                const contentEditable = isGuest ? "false" : "true";
                 li.innerHTML = `
                   <div>
                     <strong>Prompt:</strong>
-                    <span class="prompt-text" contenteditable="${contentEditable}" data-id="${doc.id}">${prompt.content}</span>
+                    <span class="prompt-text" contenteditable="true" data-id="${doc.id}">${prompt.content}</span>
                   </div>
                   <div>
                     <strong>Tags:</strong>
-                    <span class="prompt-tags" contenteditable="${contentEditable}" data-id="${doc.id}">${prompt.tags || ""}</span>
+                    <span class="prompt-tags" contenteditable="true" data-id="${doc.id}">${prompt.tags || ""}</span>
+                  </div>
+                  <div class="actions">
+                    <button class="updateBtn" data-id="${doc.id}">Update</button>
+                    <button class="deleteBtn" data-id="${doc.id}">Delete</button>
                   </div>
                 `;
-                // Only show update and delete buttons for Google (non-guest) users
-                if (!isGuest) {
-                  li.innerHTML += `
-                    <div class="actions">
-                      <button class="updateBtn" data-id="${doc.id}">Update</button>
-                      <button class="deleteBtn" data-id="${doc.id}">Delete</button>
-                    </div>
-                  `;
-                }
                 promptList.appendChild(li);
               });
             });
         }
       } else {
         document.getElementById("auth-status").innerHTML =
-          `<button id="signInBtn">Sign In with Google</button>
-           <button id="guestBtn">Continue as Guest</button>`;
+          `<button id="signInBtn">Sign In with Google</button>`;
         document.getElementById("promptContainer").style.display = "none";
         if (unsubscribePrompts) {
           unsubscribePrompts();
@@ -261,19 +248,11 @@
         }
       }
     });
-
-    // Delegate sign in, guest sign in, and sign out events
     document.addEventListener('click', function(e){
       if(e.target && e.target.id === "signInBtn"){
-        auth.signInWithPopup(googleProvider).catch(error => {
+        auth.signInWithPopup(provider).catch(error => {
           console.error(error);
           alert("Error signing in: " + error.message);
-        });
-      }
-      if(e.target && e.target.id === "guestBtn"){
-        auth.signInAnonymously().catch(error => {
-          console.error(error);
-          alert("Error signing in as guest: " + error.message);
         });
       }
       if(e.target && e.target.id === "signOutBtn"){
@@ -283,8 +262,6 @@
         });
       }
     });
-
-    // Save new prompt or update existing one
     document.getElementById("savePromptBtn").addEventListener("click", () => {
       const content = document.getElementById("promptContent").value.trim();
       const tags = document.getElementById("promptTags").value.trim();
@@ -293,30 +270,24 @@
         alert("Prompt cannot be empty.");
         return;
       }
-      if (promptId && !isGuest) {
-        // Only allow update if not a guest
+      if (promptId) {
         promptsCollection.doc(promptId).update({
           content,
           tags,
           timestamp: firebase.firestore.FieldValue.serverTimestamp()
         });
-      } else if (!promptId) {
-        // Always allow adding a new prompt regardless of login type
+      } else {
         promptsCollection.add({
           content,
           tags,
           timestamp: firebase.firestore.FieldValue.serverTimestamp()
         });
       }
-      // Clear form
       document.getElementById("promptContent").value = "";
       document.getElementById("promptTags").value = "";
       document.getElementById("promptId").value = "";
     });
-
-    // Inline update and delete actions (only applicable for non-guests)
     document.getElementById("promptList").addEventListener("click", (e) => {
-      if (isGuest) return; // Prevent any update/delete for guests
       if (e.target.classList.contains("updateBtn")) {
         const id = e.target.getAttribute("data-id");
         const content = e.target.parentElement.parentElement.querySelector(".prompt-text").innerText.trim();
@@ -334,8 +305,6 @@
         }
       }
     });
-
-    // Export prompts to a JSON file
     document.getElementById("exportBtn").addEventListener("click", () => {
       promptsCollection.get().then(snapshot => {
         const prompts = [];
@@ -349,8 +318,6 @@
         dlAnchorElem.click();
       });
     });
-
-    // Import prompts from a JSON file
     document.getElementById("importBtn").addEventListener("click", () => {
       document.getElementById("importFile").click();
     });
@@ -375,45 +342,60 @@
       reader.readAsText(file);
     });
 
-    /* Pixelated 3D Cloud Animation on Canvas */
+    /* Updated Pixelated 8-bit Cloud Animation */
     const canvas = document.getElementById('bgCanvas');
     const ctx = canvas.getContext('2d');
     let clouds = [];
-    const numClouds = 15;
+    const numClouds = 10;
+
     function resizeCanvas() {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
     }
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
+
+    // Create cloud objects with random properties
     function initClouds() {
       clouds = [];
       for (let i = 0; i < numClouds; i++) {
         clouds.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height * 0.5,
-          speed: 0.2 + Math.random() * 0.8,
-          scale: 0.5 + Math.random(),
-          opacity: 0.3 + Math.random() * 0.5
+          speed: 0.5 + Math.random(), 
+          scale: 0.8 + Math.random() * 1.2,
+          opacity: 0.4 + Math.random() * 0.4
         });
       }
     }
     initClouds();
+
+    // Draw a more shaped 8-bit cloud using multiple blocks arranged in a cloud pattern
     function drawCloud(cloud) {
       const { x, y, scale, opacity } = cloud;
       ctx.fillStyle = `rgba(255,255,255,${opacity})`;
       const blockSize = 8 * scale;
-      ctx.fillRect(x, y, blockSize, blockSize);
-      ctx.fillRect(x + blockSize, y - blockSize/2, blockSize, blockSize);
-      ctx.fillRect(x + blockSize*2, y, blockSize, blockSize);
-      ctx.fillRect(x + blockSize, y + blockSize, blockSize, blockSize);
+      // Define a cloud pattern: an array of relative positions (dx, dy)
+      const pattern = [
+        { dx: 0, dy: 0 },
+        { dx: blockSize, dy: -blockSize * 0.5 },
+        { dx: 2 * blockSize, dy: 0 },
+        { dx: blockSize * 0.5, dy: blockSize * 0.5 },
+        { dx: blockSize * 1.5, dy: blockSize * 0.5 },
+        { dx: blockSize, dy: blockSize }
+      ];
+      pattern.forEach(point => {
+        ctx.fillRect(x + point.dx, y + point.dy, blockSize, blockSize);
+      });
     }
+
+    // Animate clouds moving from right to left
     function animateClouds() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       clouds.forEach(cloud => {
         drawCloud(cloud);
         cloud.x -= cloud.speed;
-        if (cloud.x < -50) {
+        if (cloud.x < -100) {
           cloud.x = canvas.width + Math.random() * 100;
           cloud.y = Math.random() * canvas.height * 0.5;
         }
