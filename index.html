@@ -342,7 +342,7 @@
       reader.readAsText(file);
     });
 
-    /* Updated Pixelated 8-bit Cloud Animation */
+    /* Updated Advanced Pixelated 8-bit Cloud Animation */
     const canvas = document.getElementById('bgCanvas');
     const ctx = canvas.getContext('2d');
     let clouds = [];
@@ -355,7 +355,25 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    // Create cloud objects with random properties
+    // Generate a cloud pattern as a 2D boolean array based on an elliptical mask with random variation
+    function generateCloudPattern(cols, rows) {
+      let pattern = [];
+      const cx = (cols - 1) / 2;
+      const cy = (rows - 1) / 2;
+      const maxDist = Math.sqrt(cx * cx + cy * cy);
+      for (let j = 0; j < rows; j++) {
+        let rowArr = [];
+        for (let i = 0; i < cols; i++) {
+          let dist = Math.sqrt((i - cx) ** 2 + (j - cy) ** 2);
+          let threshold = maxDist * 0.6;
+          threshold += (Math.random() - 0.5) * (maxDist * 0.2);
+          rowArr.push(dist < threshold);
+        }
+        pattern.push(rowArr);
+      }
+      return pattern;
+    }
+
     function initClouds() {
       clouds = [];
       for (let i = 0; i < numClouds; i++) {
@@ -363,33 +381,29 @@
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height * 0.5,
           speed: 0.5 + Math.random(), 
-          scale: 0.8 + Math.random() * 1.2,
-          opacity: 0.4 + Math.random() * 0.4
+          scale: 1 + Math.random() * 1.5,
+          opacity: 0.4 + Math.random() * 0.4,
+          pattern: generateCloudPattern(8, 5)
         });
       }
     }
     initClouds();
 
-    // Draw a more shaped 8-bit cloud using multiple blocks arranged in a cloud pattern
+    // Draw the cloud based on its generated pattern
     function drawCloud(cloud) {
-      const { x, y, scale, opacity } = cloud;
-      ctx.fillStyle = `rgba(255,255,255,${opacity})`;
+      const { x, y, scale, opacity, pattern } = cloud;
       const blockSize = 8 * scale;
-      // Define a cloud pattern: an array of relative positions (dx, dy)
-      const pattern = [
-        { dx: 0, dy: 0 },
-        { dx: blockSize, dy: -blockSize * 0.5 },
-        { dx: 2 * blockSize, dy: 0 },
-        { dx: blockSize * 0.5, dy: blockSize * 0.5 },
-        { dx: blockSize * 1.5, dy: blockSize * 0.5 },
-        { dx: blockSize, dy: blockSize }
-      ];
-      pattern.forEach(point => {
-        ctx.fillRect(x + point.dx, y + point.dy, blockSize, blockSize);
-      });
+      ctx.fillStyle = `rgba(255,255,255,${opacity})`;
+      for (let j = 0; j < pattern.length; j++) {
+        for (let i = 0; i < pattern[j].length; i++) {
+          if (pattern[j][i]) {
+            ctx.fillRect(x + i * blockSize, y + j * blockSize, blockSize, blockSize);
+          }
+        }
+      }
     }
 
-    // Animate clouds moving from right to left
+    // Animate clouds moving from right to left with pattern regeneration for variety
     function animateClouds() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       clouds.forEach(cloud => {
@@ -398,6 +412,7 @@
         if (cloud.x < -100) {
           cloud.x = canvas.width + Math.random() * 100;
           cloud.y = Math.random() * canvas.height * 0.5;
+          cloud.pattern = generateCloudPattern(8, 5);
         }
       });
       requestAnimationFrame(animateClouds);
