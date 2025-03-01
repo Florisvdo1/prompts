@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prompt Saver - O-E-V-E-R-.-A-R-T</title>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <style>
+    /* CSS Reset */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      background-color: #121212;
+      color: #e0e0e0;
+      line-height: 1.6;
+    }
+    header {
+      background: #1f1f1f;
+      padding: 20px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    /* Animated Cyber Logo */
+    .logo {
+      font-size: 24px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      display: inline-block;
+      position: relative;
+      animation: glitch 3s infinite;
+    }
+    @keyframes glitch {
+      0% { text-shadow: 2px 0 red, -2px 0 cyan; }
+      20% { text-shadow: -2px 0 red, 2px 0 cyan; }
+      40% { text-shadow: 2px 0 red, -2px 0 cyan; }
+      60% { text-shadow: -2px 0 red, 2px 0 cyan; }
+      80% { text-shadow: 2px 0 red, -2px 0 cyan; }
+      100% { text-shadow: -2px 0 red, 2px 0 cyan; }
+    }
+    main {
+      padding: 20px;
+      max-width: 800px;
+      margin: auto;
+    }
+    .prompt-form {
+      margin-bottom: 20px;
+      background: #1f1f1f;
+      padding: 15px;
+      border-radius: 5px;
+    }
+    .prompt-form h2 {
+      margin-bottom: 10px;
+    }
+    .prompt-form input[type="text"],
+    .prompt-form textarea {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 3px;
+      background: #2a2a2a;
+      color: #e0e0e0;
+    }
+    .prompt-form button {
+      background: #3a3a3a;
+      color: #e0e0e0;
+      border: none;
+      padding: 10px 20px;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+    .prompt-list {
+      list-style: none;
+    }
+    .prompt-item {
+      background: #1f1f1f;
+      margin-bottom: 10px;
+      padding: 15px;
+      border-radius: 5px;
+      display: flex;
+      flex-direction: column;
+    }
+    .prompt-item .actions {
+      margin-top: 10px;
+      text-align: right;
+    }
+    .prompt-item button {
+      background: #3a3a3a;
+      color: #e0e0e0;
+      border: none;
+      padding: 5px 10px;
+      margin-left: 5px;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+    .import-export {
+      margin: 20px 0;
+      text-align: center;
+    }
+    .import-export button {
+      margin: 0 5px;
+      padding: 10px 15px;
+      background: #3a3a3a;
+      border: none;
+      color: #e0e0e0;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    /* Mobile Responsive */
+    @media (max-width: 600px) {
+      header { padding: 15px; }
+      .logo { font-size: 20px; }
+      .prompt-form input[type="text"],
+      .prompt-form textarea { font-size: 14px; }
+      .prompt-item { padding: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <!-- Cyber animated logo in the top center -->
+    <div class="logo">O-E-V-E-R-.-A-R-T</div>
+  </header>
+  <main>
+    <div class="prompt-form">
+      <h2>Add a New Prompt</h2>
+      <textarea id="promptContent" placeholder="Enter your prompt here..." rows="3"></textarea>
+      <input type="text" id="promptTags" placeholder="Enter tags (comma separated)">
+      <!-- Hidden input to track if editing -->
+      <input type="hidden" id="promptId">
+      <button id="savePromptBtn">Save Prompt</button>
+    </div>
+    <ul class="prompt-list" id="promptList"></ul>
+    
+    <div class="import-export">
+      <button id="exportBtn">Export Prompts</button>
+      <input type="file" id="importFile" style="display:none;">
+      <button id="importBtn">Import Prompts</button>
+    </div>
+  </main>
+
+  <script>
+    // Initialize Firebase (replace with your Firebase config)
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const promptsCollection = db.collection("prompts");
+
+    // Real-time listener for auto-syncing prompts
+    promptsCollection.orderBy("timestamp", "desc").onSnapshot(snapshot => {
+      const promptList = document.getElementById("promptList");
+      promptList.innerHTML = "";
+      snapshot.forEach(doc => {
+        const prompt = doc.data();
+        const li = document.createElement("li");
+        li.className = "prompt-item";
+        li.innerHTML = `
+          <div>
+            <strong>Prompt:</strong>
+            <span class="prompt-text" contenteditable="true" data-id="${doc.id}">${prompt.content}</span>
+          </div>
+          <div>
+            <strong>Tags:</strong>
+            <span class="prompt-tags" contenteditable="true" data-id="${doc.id}">${prompt.tags || ""}</span>
+          </div>
+          <div class="actions">
+            <button class="updateBtn" data-id="${doc.id}">Update</button>
+            <button class="deleteBtn" data-id="${doc.id}">Delete</button>
+          </div>
+        `;
+        promptList.appendChild(li);
+      });
+    });
+
+    // Save new prompt or update existing one
+    document.getElementById("savePromptBtn").addEventListener("click", () => {
+      const content = document.getElementById("promptContent").value.trim();
+      const tags = document.getElementById("promptTags").value.trim();
+      const promptId = document.getElementById("promptId").value;
+
+      if (!content) {
+        alert("Prompt cannot be empty.");
+        return;
+      }
+      
+      if (promptId) {
+        // Update existing prompt
+        promptsCollection.doc(promptId).update({
+          content,
+          tags,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } else {
+        // Add new prompt
+        promptsCollection.add({
+          content,
+          tags,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+      // Clear form
+      document.getElementById("promptContent").value = "";
+      document.getElementById("promptTags").value = "";
+      document.getElementById("promptId").value = "";
+    });
+
+    // Inline update and delete actions
+    document.getElementById("promptList").addEventListener("click", (e) => {
+      if (e.target.classList.contains("updateBtn")) {
+        const id = e.target.getAttribute("data-id");
+        const content = e.target.parentElement.parentElement.querySelector(".prompt-text").innerText.trim();
+        const tags = e.target.parentElement.parentElement.querySelector(".prompt-tags").innerText.trim();
+        promptsCollection.doc(id).update({
+          content,
+          tags,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+      if (e.target.classList.contains("deleteBtn")) {
+        const id = e.target.getAttribute("data-id");
+        if (confirm("Are you sure you want to delete this prompt?")) {
+          promptsCollection.doc(id).delete();
+        }
+      }
+    });
+
+    // Export prompts to a JSON file
+    document.getElementById("exportBtn").addEventListener("click", () => {
+      promptsCollection.get().then(snapshot => {
+        const prompts = [];
+        snapshot.forEach(doc => {
+          prompts.push({ id: doc.id, ...doc.data() });
+        });
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(prompts, null, 2));
+        const dlAnchorElem = document.createElement("a");
+        dlAnchorElem.setAttribute("href", dataStr);
+        dlAnchorElem.setAttribute("download", "prompts.json");
+        dlAnchorElem.click();
+      });
+    });
+
+    // Import prompts from a JSON file
+    document.getElementById("importBtn").addEventListener("click", () => {
+      document.getElementById("importFile").click();
+    });
+
+    document.getElementById("importFile").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        try {
+          const prompts = JSON.parse(event.target.result);
+          prompts.forEach(prompt => {
+            // Exclude existing ID and add new entry
+            const { id, ...data } = prompt;
+            promptsCollection.add({
+              ...data,
+              timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+          });
+        } catch (err) {
+          alert("Failed to import prompts: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+    });
+  </script>
+</body>
+</html>
