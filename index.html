@@ -50,6 +50,7 @@
       position: relative;
       z-index: 2; 
       min-height: 100vh; 
+      display: none; /* hidden until user logs in */
     }
 
     /**************************************************
@@ -96,9 +97,6 @@
       position: relative;
       top: 2px; 
       left: 2px;
-    }
-    #signin-btn {
-      background: #ffb8e4; /* slightly lighter pink for sign-in */
     }
     #signout-btn {
       background: #ff6fa0; /* a brighter pink for sign-out */
@@ -171,6 +169,52 @@
       box-shadow: none;
       cursor: not-allowed;
     }
+
+    /**************************************************
+     * LOGIN CHOICE OVERLAY
+     **************************************************/
+    #login-choice-overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; 
+      height: 100%;
+      z-index: 999; /* above the app container */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .login-box {
+      background: #ffc1dc;
+      border: 4px solid #000;
+      box-shadow: 4px 4px 0 #6B6B6B;
+      padding: 20px;
+      text-align: center;
+    }
+    .login-title {
+      font-size: 1.0em;
+      margin-bottom: 15px;
+    }
+    .login-choice-btn {
+      display: inline-block;
+      font-family: inherit;
+      cursor: pointer;
+      border: 2px solid #000;
+      box-shadow: 2px 2px 0 #6B6B6B;
+      padding: 10px 20px;
+      margin: 5px;
+      background: #ffaed6; 
+      color: #000;
+    }
+    .login-choice-btn:active {
+      top: 2px; left: 2px; position: relative;
+      box-shadow: none;
+    }
+    #googleLoginBtn {
+      background: #ffb8e4; /* slightly lighter pink for Google choice */
+    }
+    #guestLoginBtn {
+      background: #ff6fa0; /* a brighter pink for guest choice */
+    }
   </style>
 </head>
 <body>
@@ -194,6 +238,19 @@
   </div>
   <!-- End Tenor embed -->
 
+  <!-- 
+    LOGIN CHOICE OVERLAY 
+    Shown when no user is signed in 
+  -->
+  <div id="login-choice-overlay">
+    <div class="login-box">
+      <div class="login-title">Choose login method:</div>
+      <button id="googleLoginBtn" class="login-choice-btn">Sign in with Google</button>
+      <button id="guestLoginBtn" class="login-choice-btn">Continue as Guest</button>
+    </div>
+  </div>
+
+  <!-- Main App Container, hidden until user logs in -->
   <div id="app-container">
     <header>
       <h1>Prompts</h1>
@@ -202,7 +259,6 @@
     <!-- USER STATUS -->
     <div id="user-status">
       Logged in as <span id="username">Guest</span>
-      <button id="signin-btn" class="pixel-btn">Sign in with Google</button>
       <button id="signout-btn" class="pixel-btn">Sign out</button>
     </div>
 
@@ -243,24 +299,44 @@
     /*****************************************
      * DOM Elements
      *****************************************/
+    const loginChoiceOverlay = document.getElementById('login-choice-overlay');
+    const googleLoginBtn = document.getElementById('googleLoginBtn');
+    const guestLoginBtn = document.getElementById('guestLoginBtn');
+
+    const appContainer = document.getElementById('app-container');
     const usernameSpan = document.getElementById('username');
-    const signinBtn = document.getElementById('signin-btn');
     const signoutBtn = document.getElementById('signout-btn');
     const promptInput = document.getElementById('prompt-input');
     const addBtn = document.getElementById('add-btn');
     const promptsList = document.getElementById('prompts');
 
     /*****************************************
+     * LOGIN FLOW
+     *****************************************/
+    googleLoginBtn.onclick = () => {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      // normal signInWithPopup (no linking) because user is not signed in yet
+      auth.signInWithPopup(provider).catch(err => console.error("Google sign-in error:", err));
+    };
+
+    guestLoginBtn.onclick = () => {
+      // sign in anonymously
+      auth.signInAnonymously().catch(err => console.error("Anon sign-in error:", err));
+    };
+
+    /*****************************************
      * Auth State & UI
      *****************************************/
     auth.onAuthStateChanged(user => {
       if (user) {
+        // Hide the login overlay, show the app
+        loginChoiceOverlay.style.display = 'none';
+        appContainer.style.display = 'block';
         updateUIForUser(user);
       } else {
-        // Auto sign-in for guests
-        auth.signInAnonymously().catch(err => {
-          console.error("Anonymous sign-in error:", err);
-        });
+        // No user, show login choice overlay
+        appContainer.style.display = 'none';
+        loginChoiceOverlay.style.display = 'flex';
       }
     });
 
@@ -268,30 +344,11 @@
       if (!user) return;
       if (user.isAnonymous) {
         usernameSpan.textContent = "Guest";
-        signinBtn.style.display = "inline-block";
-        signoutBtn.style.display = "none";
       } else {
         usernameSpan.textContent = user.displayName || user.email || "Google User";
-        signinBtn.style.display = "none";
-        signoutBtn.style.display = "inline-block";
       }
       renderPrompts(); 
     }
-
-    // Link or sign in with Google
-    signinBtn.onclick = () => {
-      const provider = new firebase.auth.GoogleAuthProvider();
-      const currUser = auth.currentUser;
-      if (currUser && currUser.isAnonymous) {
-        currUser.linkWithPopup(provider)
-          .then(result => {
-            console.log("Linked anonymous to Google:", result.user);
-          })
-          .catch(err => console.error("Google sign-in failed:", err));
-      } else {
-        auth.signInWithPopup(provider).catch(err => console.error(err));
-      }
-    };
 
     // Sign out
     signoutBtn.onclick = () => {
@@ -345,11 +402,10 @@
         delBtn.className = "delete-btn";
 
         // Only enabled if user is NOT anonymous and user is the owner
-        if (!currentUser.isAnonymous && data.owner === currentUser.uid) {
+        if (currentUser && !currentUser.isAnonymous && data.owner === currentUser.uid) {
           delBtn.disabled = false;
           delBtn.onclick = () => {
-            db.collection("prompts").doc(doc.id).delete()
-              .catch(err => console.error("Delete failed:", err));
+            db.collection("prompts").doc(doc.id).delete().catch(err => console.error("Delete failed:", err));
           };
         } else {
           delBtn.disabled = true;
