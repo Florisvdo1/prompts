@@ -1,188 +1,233 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Prompt Saver - OEVER.ART</title>
-  <!-- Google Font for retro 8-bit style -->
+  <meta charset="UTF-8" />
+  <title>Prompts</title>
+
+  <!-- Pixel Font -->
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
   <style>
-    /* Global Styles */
-    * {
+    /**************************************************
+     * BASIC PAGE & BACKGROUND (Pink Theme)
+     **************************************************/
+    html, body {
       margin: 0;
       padding: 0;
-      box-sizing: border-box;
-    }
-    body {
+      background: #ffd6e3; /* Soft pink base */
       font-family: 'Press Start 2P', monospace;
-      background-color: #121212;
-      color: #fff;
-      line-height: 1.6;
-      position: relative;
-      overflow-x: hidden;
+      color: #000;
+      height: 100%;
+      min-height: 100vh;
+      overflow-x: hidden; 
     }
-    /* Background Canvas */
-    #bgCanvas {
+
+    /* 
+      #bg-tenor is a fixed element behind everything
+      We set width:100vw and height:100vh to fill the screen,
+      and use object-fit:cover to ensure the GIF scales properly
+    */
+    #bg-tenor {
       position: fixed;
       top: 0;
       left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .tenor-gif-embed {
       width: 100%;
       height: 100%;
-      z-index: -2;
-      background-color: #121212;
+      object-fit: cover;
     }
-    /* Header & Logo */
+
+    /* 
+      #app-container sits above #bg-tenor 
+    */
+    #app-container {
+      position: relative;
+      z-index: 2; 
+      min-height: 100vh; 
+    }
+
+    /**************************************************
+     * HEADER
+     **************************************************/
     header {
-      background: #1f1f1f;
-      padding: 20px;
       text-align: center;
-      position: relative;
-      overflow: hidden;
-      z-index: 1;
+      background-color: #ff9ac3;  /* Pink bar */
+      padding: 10px;
+      border-bottom: 4px solid #000;
+      box-shadow: 0 4px 0 #6B6B6B;
     }
-    .logo {
-      font-size: 24px;
-      letter-spacing: 3px;
-      /* Updated logo text animation with pixelated style */
-      animation: pixelLogo 2s infinite alternate;
+    header h1 {
+      margin: 0;
+      font-size: 1.2em;
     }
-    @keyframes pixelLogo {
-      0% {
-        text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff;
-      }
-      100% {
-        text-shadow: 4px 4px 0 #fff, -4px -4px 0 #fff;
-      }
-    }
-    /* Authentication Status */
-    #auth-status {
+
+    /**************************************************
+     * USER STATUS & AUTH BUTTONS
+     **************************************************/
+    #user-status {
       text-align: center;
-      padding: 10px;
-      background: #1f1f1f;
-      z-index: 1;
+      margin: 15px;
     }
-    /* Main Content */
-    main {
-      padding: 20px;
-      max-width: 800px;
-      margin: auto;
-      z-index: 1;
-      position: relative;
+    #username {
+      display: inline-block;
+      background: #ffc1dc; 
+      padding: 4px 8px;
+      border: 2px solid #000;
+      box-shadow: 2px 2px 0 #6B6B6B;
     }
-    /* Form Styles */
-    .prompt-form {
-      margin-bottom: 20px;
-      background: #1f1f1f;
-      padding: 15px;
-      border: 2px solid #fff;
-    }
-    .prompt-form h2 {
-      margin-bottom: 10px;
-    }
-    .prompt-form input[type="text"],
-    .prompt-form textarea {
-      width: 100%;
-      padding: 10px;
-      margin: 10px 0;
-      border: 2px solid #fff;
-      background: #2a2a2a;
-      color: #fff;
-      font-family: 'Press Start 2P', monospace;
-      font-size: 12px;
-    }
-    /* Pixelated placeholder style */
-    ::placeholder {
-      font-family: 'Press Start 2P', monospace;
-      color: #aaa;
-      letter-spacing: 1px;
-    }
-    /* Button Styles */
-    button {
-      background: linear-gradient(145deg, #000, #333);
-      color: #fff;
-      border: 1px solid rgba(255,255,255,0.4);
-      padding: 10px 20px;
+    .pixel-btn {
+      font-family: inherit;
       cursor: pointer;
-      border-radius: 0;
-      box-shadow: 3px 3px 0 #fff;
-      font-family: 'Press Start 2P', monospace;
-      font-size: 12px;
-    }
-    /* List & Prompt Item Styles */
-    .prompt-list {
-      list-style: none;
-    }
-    .prompt-item {
-      background: #1f1f1f;
-      margin-bottom: 10px;
-      padding: 15px;
-      border: 2px solid #fff;
-      display: flex;
-      flex-direction: column;
-    }
-    .prompt-item .actions {
-      margin-top: 10px;
-      text-align: right;
-    }
-    .prompt-item button {
-      margin-left: 5px;
-      box-shadow: 2px 2px 0 #fff;
-    }
-    .import-export {
-      margin: 20px 0;
-      text-align: center;
-    }
-    .import-export button {
+      border: 2px solid #000;
+      box-shadow: 2px 2px 0 #6B6B6B;
+      padding: 6px 12px;
+      background: #ffaed6; /* default pink button */
+      color: #000;
       margin: 0 5px;
     }
-    /* Mobile Responsive */
-    @media (max-width: 600px) {
-      header { padding: 15px; }
-      .logo { font-size: 20px; }
-      .prompt-form input[type="text"],
-      .prompt-form textarea { font-size: 10px; }
-      .prompt-item { padding: 10px; }
+    .pixel-btn:active {
+      box-shadow: none;
+      position: relative;
+      top: 2px; 
+      left: 2px;
+    }
+    #signin-btn {
+      background: #ffb8e4; /* slightly lighter pink for sign-in */
+    }
+    #signout-btn {
+      background: #ff6fa0; /* a brighter pink for sign-out */
+    }
+    #signout-btn:disabled {
+      background: #999;
+      color: #666;
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+
+    /**************************************************
+     * PROMPT FORM & CONTENT
+     **************************************************/
+    #main-content {
+      text-align: center;
+      padding: 10px;
+    }
+    #prompt-input {
+      width: 60%;
+      padding: 6px;
+      border: 2px solid #000;
+      box-shadow: 2px 2px 0 #6B6B6B inset;
+      background: #fff;
+      color: #000;
+      font-family: inherit;
+      margin-bottom: 8px;
+    }
+
+    /* Prompt list */
+    #prompts {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 0;
+      list-style-type: none;
+    }
+    #prompts li {
+      background: #ffeaf3;
+      border: 2px solid #000;
+      margin: 0.5em 0;
+      padding: 8px;
+      box-shadow: 2px 2px 0 #6B6B6B;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8em;
+    }
+    #prompts .prompt-text {
+      white-space: pre-wrap;
+      margin-right: 10px;
+    }
+    .delete-btn {
+      background: #ff6fa0; 
+      color: #000;
+      border: 2px solid #000;
+      padding: 4px;
+      cursor: pointer;
+      box-shadow: 2px 2px 0 #6B6B6B;
+      font-family: inherit;
+    }
+    .delete-btn:active {
+      box-shadow: none;
+      top: 2px; 
+      left: 2px;
+      position: relative;
+    }
+    .delete-btn[disabled] {
+      background: #999;
+      color: #666;
+      box-shadow: none;
+      cursor: not-allowed;
     }
   </style>
 </head>
 <body>
-  <!-- Background Canvas -->
-  <canvas id="bgCanvas"></canvas>
-  
-  <header>
-    <!-- Updated Logo Text -->
-    <div class="logo">OEVER.ART</div>
-  </header>
-  
-  <!-- Authentication Status Area -->
-  <div id="auth-status"></div>
-  
-  <!-- Main Prompt Interface (Hidden until authenticated) -->
-  <div id="promptContainer" style="display: none;">
-    <main>
-      <div class="prompt-form">
-        <h2>Add a New Prompt</h2>
-        <textarea id="promptContent" placeholder="Enter your prompt here..." rows="3"></textarea>
-        <input type="text" id="promptTags" placeholder="Enter tags (comma separated)">
-        <input type="hidden" id="promptId">
-        <button id="savePromptBtn">Save Prompt</button>
+
+  <!-- Tenor Pink Blossom Clouds in the background, full viewport -->
+  <div id="bg-tenor">
+    <div class="tenor-gif-embed" 
+         data-postid="16072137" 
+         data-share-method="host" 
+         data-width="100%" 
+         style="width: 100%; height: 100%; object-fit: cover;">
+      <a href="https://tenor.com/view/cute-cherry-blossom-pixel-city-gif-16072137">
+        Cute Cherry Blossom GIF
+      </a> 
+      from 
+      <a href="https://tenor.com/search/cute-gifs">
+        Cute GIFs
+      </a>
+    </div>
+    <script type="text/javascript" async src="https://tenor.com/embed.js"></script>
+  </div>
+  <!-- End Tenor embed -->
+
+  <div id="app-container">
+    <header>
+      <h1>Prompts</h1>
+    </header>
+
+    <!-- USER STATUS -->
+    <div id="user-status">
+      Logged in as <span id="username">Guest</span>
+      <button id="signin-btn" class="pixel-btn">Sign in with Google</button>
+      <button id="signout-btn" class="pixel-btn">Sign out</button>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main-content">
+      <!-- Prompt Form -->
+      <div>
+        <input id="prompt-input" type="text" placeholder="Type a new prompt..." />
+        <button id="add-btn" class="pixel-btn">Add Prompt</button>
       </div>
-      <ul class="prompt-list" id="promptList"></ul>
-      
-      <div class="import-export">
-        <button id="exportBtn">Export Prompts</button>
-        <input type="file" id="importFile" style="display:none;">
-        <button id="importBtn">Import Prompts</button>
-      </div>
-    </main>
+
+      <!-- Prompt List -->
+      <ul id="prompts"></ul>
+    </div>
   </div>
 
+  <!-- Firebase SDKs (v9 compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  
   <script>
-    // Firebase configuration and initialization
+    /*****************************************
+     * Firebase Configuration & Initialization
+     *****************************************/
     const firebaseConfig = {
       apiKey: "AIzaSyDIojKiKQpK8kPWQO0sAsD8FiwBPfYsdzc",
       authDomain: "prompts-c34a6.firebaseapp.com",
@@ -194,233 +239,126 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const auth = firebase.auth();
-    const promptsCollection = db.collection("prompts");
 
-    // Set up Google Auth Provider with login hint
-    const provider = new firebase.auth.GoogleAuthProvider();
-    provider.setCustomParameters({ 'login_hint': 'florisvdoever@gmail.com' });
-    
-    let unsubscribePrompts = null;
+    /*****************************************
+     * DOM Elements
+     *****************************************/
+    const usernameSpan = document.getElementById('username');
+    const signinBtn = document.getElementById('signin-btn');
+    const signoutBtn = document.getElementById('signout-btn');
+    const promptInput = document.getElementById('prompt-input');
+    const addBtn = document.getElementById('add-btn');
+    const promptsList = document.getElementById('prompts');
+
+    /*****************************************
+     * Auth State & UI
+     *****************************************/
     auth.onAuthStateChanged(user => {
       if (user) {
-        if (user.email !== "florisvdoever@gmail.com") {
-          alert("Unauthorized user. Signing out.");
-          auth.signOut();
-          return;
-        }
-        document.getElementById("auth-status").innerHTML = 
-          `Signed in as ${user.email} <button id="signOutBtn">Sign Out</button>`;
-        document.getElementById("promptContainer").style.display = "block";
-        if (!unsubscribePrompts) {
-          unsubscribePrompts = promptsCollection.orderBy("timestamp", "desc")
-            .onSnapshot(snapshot => {
-              const promptList = document.getElementById("promptList");
-              promptList.innerHTML = "";
-              snapshot.forEach(doc => {
-                const prompt = doc.data();
-                const li = document.createElement("li");
-                li.className = "prompt-item";
-                li.innerHTML = `
-                  <div>
-                    <strong>Prompt:</strong>
-                    <span class="prompt-text" contenteditable="true" data-id="${doc.id}">${prompt.content}</span>
-                  </div>
-                  <div>
-                    <strong>Tags:</strong>
-                    <span class="prompt-tags" contenteditable="true" data-id="${doc.id}">${prompt.tags || ""}</span>
-                  </div>
-                  <div class="actions">
-                    <button class="updateBtn" data-id="${doc.id}">Update</button>
-                    <button class="deleteBtn" data-id="${doc.id}">Delete</button>
-                  </div>
-                `;
-                promptList.appendChild(li);
-              });
-            });
-        }
+        updateUIForUser(user);
       } else {
-        document.getElementById("auth-status").innerHTML =
-          `<button id="signInBtn">Sign In with Google</button>`;
-        document.getElementById("promptContainer").style.display = "none";
-        if (unsubscribePrompts) {
-          unsubscribePrompts();
-          unsubscribePrompts = null;
-        }
-      }
-    });
-    document.addEventListener('click', function(e){
-      if(e.target && e.target.id === "signInBtn"){
-        auth.signInWithPopup(provider).catch(error => {
-          console.error(error);
-          alert("Error signing in: " + error.message);
-        });
-      }
-      if(e.target && e.target.id === "signOutBtn"){
-        auth.signOut().catch(error => {
-          console.error(error);
-          alert("Error signing out: " + error.message);
+        // Auto sign-in for guests
+        auth.signInAnonymously().catch(err => {
+          console.error("Anonymous sign-in error:", err);
         });
       }
     });
-    document.getElementById("savePromptBtn").addEventListener("click", () => {
-      const content = document.getElementById("promptContent").value.trim();
-      const tags = document.getElementById("promptTags").value.trim();
-      const promptId = document.getElementById("promptId").value;
-      if (!content) {
-        alert("Prompt cannot be empty.");
-        return;
-      }
-      if (promptId) {
-        promptsCollection.doc(promptId).update({
-          content,
-          tags,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        });
+
+    function updateUIForUser(user) {
+      if (!user) return;
+      if (user.isAnonymous) {
+        usernameSpan.textContent = "Guest";
+        signinBtn.style.display = "inline-block";
+        signoutBtn.style.display = "none";
       } else {
-        promptsCollection.add({
-          content,
-          tags,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        usernameSpan.textContent = user.displayName || user.email || "Google User";
+        signinBtn.style.display = "none";
+        signoutBtn.style.display = "inline-block";
       }
-      document.getElementById("promptContent").value = "";
-      document.getElementById("promptTags").value = "";
-      document.getElementById("promptId").value = "";
+      renderPrompts(); 
+    }
+
+    // Link or sign in with Google
+    signinBtn.onclick = () => {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      const currUser = auth.currentUser;
+      if (currUser && currUser.isAnonymous) {
+        currUser.linkWithPopup(provider)
+          .then(result => {
+            console.log("Linked anonymous to Google:", result.user);
+          })
+          .catch(err => console.error("Google sign-in failed:", err));
+      } else {
+        auth.signInWithPopup(provider).catch(err => console.error(err));
+      }
+    };
+
+    // Sign out
+    signoutBtn.onclick = () => {
+      auth.signOut().catch(err => console.error("Sign out error:", err));
+    };
+
+    /*****************************************
+     * Prompts: Add, Listen, Render
+     *****************************************/
+    addBtn.onclick = () => {
+      const text = promptInput.value.trim();
+      if (!text) return;
+
+      const user = auth.currentUser;
+      if (!user) return;
+
+      db.collection("prompts").add({
+        text: text,
+        owner: user.uid,
+        authorName: user.isAnonymous 
+          ? "Guest"
+          : (user.displayName || user.email || "GoogleUser"),
+        created: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(() => {
+        promptInput.value = "";
+      }).catch(err => console.error("Error adding prompt:", err));
+    };
+
+    db.collection("prompts").orderBy("created", "asc").onSnapshot(snapshot => {
+      renderPrompts(snapshot.docs);
     });
-    document.getElementById("promptList").addEventListener("click", (e) => {
-      if (e.target.classList.contains("updateBtn")) {
-        const id = e.target.getAttribute("data-id");
-        const content = e.target.parentElement.parentElement.querySelector(".prompt-text").innerText.trim();
-        const tags = e.target.parentElement.parentElement.querySelector(".prompt-tags").innerText.trim();
-        promptsCollection.doc(id).update({
-          content,
-          tags,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      }
-      if (e.target.classList.contains("deleteBtn")) {
-        const id = e.target.getAttribute("data-id");
-        if (confirm("Are you sure you want to delete this prompt?")) {
-          promptsCollection.doc(id).delete();
+
+    function renderPrompts(docs) {
+      if (!docs) return;
+      promptsList.innerHTML = "";
+      const currentUser = auth.currentUser;
+
+      docs.forEach(doc => {
+        const data = doc.data();
+        const li = document.createElement("li");
+        
+        // Prompt text
+        const textSpan = document.createElement("span");
+        textSpan.className = "prompt-text";
+        textSpan.textContent = data.text + (data.authorName ? ` — by ${data.authorName}` : "");
+        li.appendChild(textSpan);
+
+        // Delete button
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "Delete";
+        delBtn.className = "delete-btn";
+
+        // Only enabled if user is NOT anonymous and user is the owner
+        if (!currentUser.isAnonymous && data.owner === currentUser.uid) {
+          delBtn.disabled = false;
+          delBtn.onclick = () => {
+            db.collection("prompts").doc(doc.id).delete()
+              .catch(err => console.error("Delete failed:", err));
+          };
+        } else {
+          delBtn.disabled = true;
         }
-      }
-    });
-    document.getElementById("exportBtn").addEventListener("click", () => {
-      promptsCollection.get().then(snapshot => {
-        const prompts = [];
-        snapshot.forEach(doc => {
-          prompts.push({ id: doc.id, ...doc.data() });
-        });
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(prompts, null, 2));
-        const dlAnchorElem = document.createElement("a");
-        dlAnchorElem.setAttribute("href", dataStr);
-        dlAnchorElem.setAttribute("download", "prompts.json");
-        dlAnchorElem.click();
+
+        li.appendChild(delBtn);
+        promptsList.appendChild(li);
       });
-    });
-    document.getElementById("importBtn").addEventListener("click", () => {
-      document.getElementById("importFile").click();
-    });
-    document.getElementById("importFile").addEventListener("change", (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        try {
-          const prompts = JSON.parse(event.target.result);
-          prompts.forEach(prompt => {
-            const { id, ...data } = prompt;
-            promptsCollection.add({
-              ...data,
-              timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            });
-          });
-        } catch (err) {
-          alert("Failed to import prompts: " + err.message);
-        }
-      };
-      reader.readAsText(file);
-    });
-
-    /* Advanced Pixelated 8-bit Cloud Animation with More Detailed Patterns */
-    const canvas = document.getElementById('bgCanvas');
-    const ctx = canvas.getContext('2d');
-    let clouds = [];
-    const numClouds = 10;
-
-    function resizeCanvas() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
     }
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
-
-    // Generate a cloud pattern as a 2D boolean array based on an elliptical mask with randomness.
-    // Updated dimensions: 12 columns x 8 rows for more detail.
-    function generateCloudPattern(cols, rows) {
-      let pattern = [];
-      const cx = (cols - 1) / 2;
-      const cy = (rows - 1) / 2;
-      const maxDist = Math.sqrt(cx * cx + cy * cy);
-      for (let j = 0; j < rows; j++) {
-        let rowArr = [];
-        for (let i = 0; i < cols; i++) {
-          let dist = Math.sqrt((i - cx) ** 2 + (j - cy) ** 2);
-          let threshold = maxDist * 0.6;
-          threshold += (Math.random() - 0.5) * (maxDist * 0.2);
-          rowArr.push(dist < threshold);
-        }
-        pattern.push(rowArr);
-      }
-      return pattern;
-    }
-
-    function initClouds() {
-      clouds = [];
-      for (let i = 0; i < numClouds; i++) {
-        clouds.push({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height * 0.5,
-          speed: 0.5 + Math.random(), 
-          scale: 1 + Math.random() * 1.5,
-          opacity: 0.4 + Math.random() * 0.4,
-          // Updated to use a more detailed pattern: 12 columns x 8 rows.
-          pattern: generateCloudPattern(12, 8)
-        });
-      }
-    }
-    initClouds();
-
-    // Draw the cloud based on its generated pattern (more detailed with increased columns/rows)
-    function drawCloud(cloud) {
-      const { x, y, scale, opacity, pattern } = cloud;
-      const blockSize = 8 * scale;
-      ctx.fillStyle = `rgba(255,255,255,${opacity})`;
-      for (let j = 0; j < pattern.length; j++) {
-        for (let i = 0; i < pattern[j].length; i++) {
-          if (pattern[j][i]) {
-            ctx.fillRect(x + i * blockSize, y + j * blockSize, blockSize, blockSize);
-          }
-        }
-      }
-    }
-
-    // Animate clouds moving from right to left; regenerate pattern for variety when off-screen.
-    function animateClouds() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      clouds.forEach(cloud => {
-        drawCloud(cloud);
-        cloud.x -= cloud.speed;
-        if (cloud.x < -150) {
-          cloud.x = canvas.width + Math.random() * 150;
-          cloud.y = Math.random() * canvas.height * 0.5;
-          // Regenerate a new, detailed pattern
-          cloud.pattern = generateCloudPattern(12, 8);
-        }
-      });
-      requestAnimationFrame(animateClouds);
-    }
-    animateClouds();
   </script>
 </body>
 </html>
